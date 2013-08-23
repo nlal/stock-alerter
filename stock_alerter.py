@@ -1,27 +1,52 @@
-import urllib2
-import simplejson
 import yaml
-
-with open("config.yml", "r") as f:
-    config = yaml.load(f)
-
-ENV = "store://datatables.org/alltableswithkeys"
-BASE_URL = "http://query.yahooapis.com/v1/public/yql?q=%s&format=json&env=%s"
+from lib.mailgun import MailGun
+from lib.yql import YQL
 
 
-def build_query(symbols):
-    q = ",".join("'%s'" % s for s in symbols)
-    return "select * from yahoo.finance.quote where symbol in (%s)" % q
+ALERT_TEMPLATE = """Symbol: {Symbol}
+Name: {Name}
+Price: {LastTradePriceOnly}
+Change: {Change}
+Days Range: {DaysRange}
+Year Low: {YearLow}
+Year High: {YearHigh}
+Market Cap: {MarketCapitalization}"""
 
-def get_prices(symbols):
-    query = build_query(symbols)
-    url = BASE_URL % (urllib2.quote(query), urllib2.quote(ENV))
-    response = urllib2.urlopen(url)
-    json = simplejson.loads(response.read())
-    results = json["query"]["results"]["quote"]
-    prices = [r["LastTradePriceOnly"] for r in results]
-    return zip(symbols, prices)
+
+class Alerter(object):
+
+    def __init__(self, config):
+        self.symbols = config["symbols"]
+        self.from_addr = config["from-email"]
+        self.to_addr = config["to-email"]
+        self.yql = YQL()
+        self.mailgun = MailGun(config["mailgun-domain"],
+                               config["mailgun-api-key"])
+
+    def check_alert(self, sym, quote):
+        price = float(quote["LastTradePriceOnly"])
+        low, high = self.symbols[sym]
+
+        trigger = None
+        if price <= low:
+            trigger = "<= %.2f" % low
+        elif price >= high:
+            trigger = ">= %.2f" % high
+
+        if trigger:
+            subject = "Stock Alert: %s @ %.2f (%s)" % (sym, price, trigger)
+            body = ALERT_TEMPLATE.format(**quote)
+            self.mailgun.send_email(self.from_addr, self.to_addr, subject, body)
+
+    def run(self):
+        quotes = self.yql.get_quotes(self.symbols.keys())
+        for sym, quote in quotes:
+            self.check_alert(sym, quote)
 
 
 if __name__ == "__main__":
-    print get_prices(config["symbols"])
+    with open("config.yml", "r") as f:
+        config = yaml.load(f)
+
+    alerter = Alerter(config)
+    alerter.run()

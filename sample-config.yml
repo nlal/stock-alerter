@@ -1,5 +1,8 @@
 symbols:
-    - AAPL
-    - GOOG
-    - FB
-mailgun-apikey: Secret sauce
+    AAPL: [500, 600]
+    GOOG: [800, 900]
+
+from-email: Stock Alerts <stock-alerts@example.com>
+to-email: example@example.com
+mailgun-domain: example.com
+mailgun-api-key: key-s3cr3t
