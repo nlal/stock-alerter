@@ -1,4 +1,5 @@
 import yaml
+from datetime import datetime, timedelta
 from lib.mailgun import MailGun
 from lib.yql import YQL
 
@@ -15,15 +16,20 @@ Market Cap: {MarketCapitalization}"""
 
 class Alerter(object):
 
-    def __init__(self, config):
+    def __init__(self, config, last_triggered):
         self.symbols = config["symbols"]
         self.from_addr = config["from-email"]
         self.to_addr = config["to-email"]
         self.yql = YQL()
         self.mailgun = MailGun(config["mailgun-domain"],
                                config["mailgun-api-key"])
+        self.last_triggered = last_triggered
 
     def check_alert(self, sym, quote):
+        now = datetime.now()
+        if now <= self.last_triggered.get(sym, datetime.min) + timedelta(days=1):
+            return
+
         price = float(quote["LastTradePriceOnly"])
         low, high = self.symbols[sym]
 
@@ -37,6 +43,7 @@ class Alerter(object):
             subject = "Stock Alert: %s @ %.2f (%s)" % (sym, price, trigger)
             body = ALERT_TEMPLATE.format(**quote)
             self.mailgun.send_email(self.from_addr, self.to_addr, subject, body)
+            self.last_triggered[sym] = now
 
     def run(self):
         quotes = self.yql.get_quotes(self.symbols.keys())
@@ -48,5 +55,12 @@ if __name__ == "__main__":
     with open("config.yml", "r") as f:
         config = yaml.load(f)
 
-    alerter = Alerter(config)
-    alerter.run()
+    with open("last-triggered.yml", "r+") as f:
+        last_triggered = yaml.load(f) or {}
+
+        alerter = Alerter(config, last_triggered)
+        alerter.run()
+
+        f.seek(0)
+        yaml.dump(last_triggered, f, default_flow_style=False)
+
