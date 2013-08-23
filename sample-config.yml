@@ -1,0 +1,5 @@
+symbols:
+    - AAPL
+    - GOOG
+    - FB
+mailgun-apikey: Secret sauce
