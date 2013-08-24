@@ -13,5 +13,7 @@ class YQL(object):
                                 "env": self.env,
                                 "format": "json",
                             })
-        quotes = resp.json["query"]["results"]["quote"]
+        quotes = resp.json()["query"]["results"]["quote"]
+        if not isinstance(quotes, list):
+            quotes = [quotes]
         return zip(symbols, quotes)
