@@ -1,3 +1,4 @@
+import traceback
 import yaml
 from datetime import datetime, timedelta
 from lib.mailgun import MailGun
@@ -46,9 +47,14 @@ class Alerter(object):
             self.last_triggered[sym] = now
 
     def run(self):
-        quotes = self.yql.get_quotes(self.symbols.keys())
-        for sym, quote in quotes:
-            self.check_alert(sym, quote)
+        try:
+            quotes = self.yql.get_quotes(self.symbols.keys())
+            for sym, quote in quotes:
+                self.check_alert(sym, quote)
+        except Exception as e:
+            subject = "Stock Alert Error: %s" % e.message
+            body = traceback.format_exc()
+            self.mailgun.send_email(self.from_addr, self.to_addr, subject, body)
 
 
 if __name__ == "__main__":
@@ -63,4 +69,3 @@ if __name__ == "__main__":
 
         f.seek(0)
         yaml.dump(last_triggered, f, default_flow_style=False)
-
