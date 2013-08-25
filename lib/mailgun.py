@@ -23,6 +23,6 @@ class MailGun(object):
                                 "html": html,
                              })
         if not resp.ok:
-            logging.error("Error sending email: %s", resp.json["message"])
+            logging.error("Error sending email: %s", resp.text())
 
         return resp.ok
