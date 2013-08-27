@@ -15,7 +15,7 @@ class YQL(object):
                                 "format": "json",
                             })
         if not resp.ok:
-            logging.error("Error getting quotes: %s", resp.text())
+            logging.error("Error getting quotes: %s", resp.text)
             return []
 
         quotes = resp.json()["query"]["results"]["quote"]
