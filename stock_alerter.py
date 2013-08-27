@@ -52,7 +52,7 @@ class Alerter(object):
             for sym, quote in quotes:
                 self.check_alert(sym, quote)
         except Exception as e:
-            subject = "Stock Alert Error: %s" % e.message
+            subject = "Stock Alert Error: %s" % str(e)
             body = traceback.format_exc()
             self.mailgun.send_email(self.from_addr, self.to_addr, subject, body)
 
