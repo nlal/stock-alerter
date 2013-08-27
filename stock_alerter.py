@@ -2,17 +2,19 @@ import traceback
 import yaml
 from datetime import datetime, timedelta
 from lib.mailgun import MailGun
-from lib.yql import YQL
+from lib.yahoo import YahooFinance
 
 
 ALERT_TEMPLATE = """Symbol: {Symbol}
 Name: {Name}
-Price: {LastTradePriceOnly}
+Price: {Price}
 Change: {Change}
 Days Range: {DaysRange}
-Year Low: {YearLow}
-Year High: {YearHigh}
-Market Cap: {MarketCapitalization}"""
+52 Week Range: {52WeekRange}
+Volume: {Volume}
+Market Cap: {MarketCap}
+P/E: {P/E}
+EPS: {EPS}"""
 
 
 class Alerter(object):
@@ -21,8 +23,8 @@ class Alerter(object):
         self.symbols = config["symbols"]
         self.from_addr = config["from-email"]
         self.to_addr = config["to-email"]
-        self.yql = YQL()
-        self.mailgun = MailGun(config["mailgun-domain"],
+        self.quoter = YahooFinance()
+        self.emailer = MailGun(config["mailgun-domain"],
                                config["mailgun-api-key"])
         self.last_triggered = last_triggered
 
@@ -31,7 +33,7 @@ class Alerter(object):
         if now <= self.last_triggered.get(sym, datetime.min) + timedelta(days=1):
             return
 
-        price = float(quote["LastTradePriceOnly"])
+        price = float(quote["Price"])
         low, high = self.symbols[sym]
 
         trigger = None
@@ -43,18 +45,18 @@ class Alerter(object):
         if trigger:
             subject = "Stock Alert: %s @ %.2f (%s)" % (sym, price, trigger)
             body = ALERT_TEMPLATE.format(**quote)
-            self.mailgun.send_email(self.from_addr, self.to_addr, subject, body)
+            self.emailer.send_email(self.from_addr, self.to_addr, subject, body)
             self.last_triggered[sym] = now
 
     def run(self):
         try:
-            quotes = self.yql.get_quotes(self.symbols.keys())
+            quotes = self.quoter.get_quotes(self.symbols.keys())
             for sym, quote in quotes:
                 self.check_alert(sym, quote)
         except Exception as e:
             subject = "Stock Alert Error: %s" % str(e)
             body = traceback.format_exc()
-            self.mailgun.send_email(self.from_addr, self.to_addr, subject, body)
+            self.emailer.send_email(self.from_addr, self.to_addr, subject, body)
 
 
 if __name__ == "__main__":
