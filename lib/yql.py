@@ -14,11 +14,13 @@ class YQL(object):
                                 "env": self.env,
                                 "format": "json",
                             })
-        if not resp.ok:
+
+        try:
+            quotes = resp.json()["query"]["results"]["quote"]
+        except:
             logging.error("Error getting quotes: %s", resp.text)
             return []
 
-        quotes = resp.json()["query"]["results"]["quote"]
         if not isinstance(quotes, list):
             quotes = [quotes]
 
